@@ -231,6 +231,10 @@ struct sway_container *seat_get_focus_inactive_view(struct sway_seat *seat,
 	return NULL;
 }
 
+static bool node_contains_focus(struct sway_node *node, struct sway_node *focus) {
+	return focus && (focus == node || node_has_ancestor(focus, node));
+}
+
 static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 	struct sway_seat_node *seat_node =
 		wl_container_of(listener, seat_node, destroy);
@@ -260,8 +264,7 @@ static void handle_seat_node_destroy(struct wl_listener *listener, void *data) {
 	// Even though the container being destroyed might be nowhere near the
 	// focused container, we still need to set focus_inactive on a sibling of
 	// the container being destroyed.
-	bool needs_new_focus = focus &&
-		(focus == node || node_has_ancestor(focus, node));
+	bool needs_new_focus = node_contains_focus(node, focus);
 
 	seat_node_destroy(seat_node);
 
@@ -1127,14 +1130,34 @@ void seat_set_raw_focus(struct sway_seat *seat, struct sway_node *node) {
 	}
 }
 
-// Rebuild the focus stack for a given container by pushing its ancestors
-// and then the container itself to the top of the stack.
+// Rebuild the focus stack for a given container by pushing its ancestors and
+// then the container itself to the top of the stack. Callers must push the
+// workspace first if it needs raising.
 static void seat_rebuild_focus_stack(struct sway_seat *seat, struct sway_container *con) {
 	if (!con) {
 		return;
 	}
 	seat_rebuild_focus_stack(seat, con->pending.parent);
 	seat_set_raw_focus(seat, &con->node);
+}
+
+void seat_rebuild_focus_for_node(struct sway_node *node) {
+	struct sway_seat *seat;
+	wl_list_for_each(seat, &server.input->seats, link) {
+		struct sway_node *focus = seat_get_focus(seat);
+		if (!node_contains_focus(node, focus)) {
+			continue;
+		}
+		if (focus->type != N_CONTAINER) {
+			continue;
+		}
+		// Reparent may move focus to another workspace, so raise it too.
+		struct sway_container *con = focus->sway_container;
+		if (con->pending.workspace) {
+			seat_set_raw_focus(seat, &con->pending.workspace->node);
+		}
+		seat_rebuild_focus_stack(seat, con);
+	}
 }
 
 static void seat_set_workspace_focus(struct sway_seat *seat, struct sway_node *node) {

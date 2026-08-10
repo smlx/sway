@@ -287,6 +287,14 @@ int container_sibling_index(struct sway_container *child);
 
 void container_handle_fullscreen_reparent(struct sway_container *con);
 
+/**
+ * Set the parent of a container which has already been inserted into the new
+ * parent's child list. Updates the workspace of the container and its
+ * descendants, the fullscreen state, and the focus stack.
+ */
+void container_set_parent(struct sway_container *con,
+		struct sway_node *new_parent);
+
 void container_add_child(struct sway_container *parent,
 		struct sway_container *child);
 

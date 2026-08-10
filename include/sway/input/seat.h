@@ -187,6 +187,12 @@ void seat_set_focus_workspace(struct sway_seat *seat,
  */
 void seat_set_raw_focus(struct sway_seat *seat, struct sway_node *node);
 
+/**
+ * Repair the focus stack of every seat with focus at or below the given node,
+ * after the node has been reparented. The focused node must be a container.
+ */
+void seat_rebuild_focus_for_node(struct sway_node *node);
+
 void seat_set_focus_surface(struct sway_seat *seat,
 		struct wlr_surface *surface, bool unfocus);
 

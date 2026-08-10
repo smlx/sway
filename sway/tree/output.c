@@ -195,7 +195,6 @@ static void evacuate_sticky(struct sway_workspace *old_ws,
 		struct sway_container *sticky = old_ws->floating->items[0];
 		container_detach(sticky);
 		workspace_add_floating(new_ws, sticky);
-		container_handle_fullscreen_reparent(sticky);
 		container_floating_move_to_center(sticky);
 		ipc_event_window(sticky, "move");
 	}

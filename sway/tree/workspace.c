@@ -880,16 +880,10 @@ struct sway_container *workspace_find_container(struct sway_workspace *ws,
 	return NULL;
 }
 
-static void set_workspace(struct sway_container *container, void *data) {
-	container->pending.workspace = container->pending.parent->pending.workspace;
-}
-
 static void workspace_attach_tiling(struct sway_workspace *ws,
 		struct sway_container *con) {
 	list_add(ws->tiling, con);
-	con->pending.workspace = ws;
-	container_for_each_child(con, set_workspace, NULL);
-	container_handle_fullscreen_reparent(con);
+	container_set_parent(con, &ws->node);
 	workspace_update_representation(ws);
 	node_set_dirty(&ws->node);
 	node_set_dirty(&con->node);
@@ -949,9 +943,7 @@ struct sway_container *workspace_add_tiling(struct sway_workspace *workspace,
 		con = container_split(con, config->default_layout);
 	}
 	list_add(workspace->tiling, con);
-	con->pending.workspace = workspace;
-	container_for_each_child(con, set_workspace, NULL);
-	container_handle_fullscreen_reparent(con);
+	container_set_parent(con, &workspace->node);
 	workspace_update_representation(workspace);
 	node_set_dirty(&workspace->node);
 	node_set_dirty(&con->node);
@@ -964,9 +956,7 @@ void workspace_add_floating(struct sway_workspace *workspace,
 		container_detach(con);
 	}
 	list_add(workspace->floating, con);
-	con->pending.workspace = workspace;
-	container_for_each_child(con, set_workspace, NULL);
-	container_handle_fullscreen_reparent(con);
+	container_set_parent(con, &workspace->node);
 	node_set_dirty(&workspace->node);
 	node_set_dirty(&con->node);
 }
@@ -974,9 +964,7 @@ void workspace_add_floating(struct sway_workspace *workspace,
 void workspace_insert_tiling_direct(struct sway_workspace *workspace,
 		struct sway_container *con, int index) {
 	list_insert(workspace->tiling, index, con);
-	con->pending.workspace = workspace;
-	container_for_each_child(con, set_workspace, NULL);
-	container_handle_fullscreen_reparent(con);
+	container_set_parent(con, &workspace->node);
 	workspace_update_representation(workspace);
 	node_set_dirty(&workspace->node);
 	node_set_dirty(&con->node);

@@ -1429,16 +1429,31 @@ static void set_workspace(struct sway_container *container, void *data) {
 	container->pending.workspace = container->pending.parent->pending.workspace;
 }
 
+void container_set_parent(struct sway_container *con,
+		struct sway_node *new_parent) {
+	if (new_parent->type == N_WORKSPACE) {
+		con->pending.workspace = new_parent->sway_workspace;
+		con->pending.parent = NULL;
+	} else if (new_parent->type == N_CONTAINER) {
+		con->pending.parent = new_parent->sway_container;
+		con->pending.workspace =
+			new_parent->sway_container->pending.workspace;
+	} else {
+		sway_assert(false, "Invalid parent node type");
+		return;
+	}
+	container_for_each_child(con, set_workspace, NULL);
+	container_handle_fullscreen_reparent(con);
+	seat_rebuild_focus_for_node(&con->node);
+}
+
 void container_insert_child(struct sway_container *parent,
 		struct sway_container *child, int i) {
 	if (child->pending.workspace) {
 		container_detach(child);
 	}
 	list_insert(parent->pending.children, i, child);
-	child->pending.parent = parent;
-	child->pending.workspace = parent->pending.workspace;
-	container_for_each_child(child, set_workspace, NULL);
-	container_handle_fullscreen_reparent(child);
+	container_set_parent(child, &parent->node);
 	container_update_representation(parent);
 }
 
@@ -1450,10 +1465,7 @@ void container_add_sibling(struct sway_container *fixed,
 	list_t *siblings = container_get_siblings(fixed);
 	int index = list_find(siblings, fixed);
 	list_insert(siblings, index + after, active);
-	active->pending.parent = fixed->pending.parent;
-	active->pending.workspace = fixed->pending.workspace;
-	container_for_each_child(active, set_workspace, NULL);
-	container_handle_fullscreen_reparent(active);
+	container_set_parent(active, node_get_parent(&fixed->node));
 	container_update_representation(active);
 }
 
@@ -1463,10 +1475,7 @@ void container_add_child(struct sway_container *parent,
 		container_detach(child);
 	}
 	list_add(parent->pending.children, child);
-	child->pending.parent = parent;
-	child->pending.workspace = parent->pending.workspace;
-	container_for_each_child(child, set_workspace, NULL);
-	container_handle_fullscreen_reparent(child);
+	container_set_parent(child, &parent->node);
 	container_update_representation(parent);
 	node_set_dirty(&child->node);
 	node_set_dirty(&parent->node);
@@ -1594,13 +1603,8 @@ struct sway_container *container_split(struct sway_container *child,
 	container_replace(child, cont);
 	container_add_child(cont, child);
 
-	if (set_focus) {
-		seat_set_raw_focus(seat, &cont->node);
-		if (cont->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
-			seat_set_focus(seat, &child->node);
-		} else {
-			seat_set_raw_focus(seat, &child->node);
-		}
+	if (set_focus && cont->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
+		seat_set_focus(seat, &child->node);
 	}
 
 	return cont;
